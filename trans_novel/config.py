@@ -56,7 +56,6 @@ class Config(BaseModel):
     pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
     honorific_strategy: str = "keep_style"
     punctuation_normalize: bool = True  # 译文标点规范化为简体中文通用
-    glossary_audit: bool = True      # 收尾做术语 AI 审计统一（改写正文）
     state_dir: str = "state"
 
     @classmethod
@@ -92,6 +91,5 @@ class Config(BaseModel):
             pipeline=pipeline,
             honorific_strategy=raw.get("honorific", {}).get("strategy", "keep_style"),
             punctuation_normalize=bool(punct.get("normalize", True)),
-            glossary_audit=bool(raw.get("glossary_audit", True)),
             state_dir=raw.get("paths", {}).get("state_dir", "state"),
         )

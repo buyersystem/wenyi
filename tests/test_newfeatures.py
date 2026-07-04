@@ -58,7 +58,6 @@ class TestGlossaryAudit(unittest.TestCase):
                     "strong": {"model": "p"}, "cheap": {"model": "f"}}},
                 "pipeline": {"review": False, "polish": False,
                              "backtranslate_sample": 0.0, "consistency_qa": False},
-                "glossary_audit": False,
                 "paths": {"state_dir": state},
             })
             orch = Orchestrator(cfg, client=FakeClient(handler=routing_handler))
@@ -120,9 +119,8 @@ class TestRunAll(unittest.TestCase):
             self.assertEqual(seen[-1][0], seen[-1][1])
             # auto 检测把源语言定为 ja
             self.assertEqual(cfg.source_lang, "ja")
-            # 报告含一致性与统一字段
+            # 报告含一致性字段；术语审计不在连续流程中自动运行
             self.assertIn("consistency_issues", result["report"])
-            self.assertIn("glossary_unifications", result["report"])
             with open(result["store"].event_log_path, "r", encoding="utf-8") as f:
                 events = [json.loads(line) for line in f if line.strip()]
             event_names = [e["event"] for e in events]
@@ -130,6 +128,7 @@ class TestRunAll(unittest.TestCase):
             self.assertIn("batch_translated", event_names)
             self.assertIn("report_saved", event_names)
             self.assertIn("assembled", event_names)
+            self.assertNotIn("glossary_audit_finished", event_names)
             translated = next(e for e in events if e["event"] == "batch_translated")
             self.assertTrue(translated["segments"])
             self.assertIn("source", translated["segments"][0])

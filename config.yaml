@@ -16,7 +16,7 @@ llm:
   max_retries: 4 # 失败重试次数（指数退避）
   tiers:
     strong:
-      model: deepseek-v4-pro # 翻译 / 润色 / 全局分析 / 术语审计 / 标题
+      model: deepseek-v4-pro # 翻译 / 润色 / 全局分析 / 标题
       reasoning_effort: high
       thinking: true
     cheap:
@@ -57,9 +57,6 @@ honorific:
 # ── 标点规范化（统一为简体中文大陆通用全角标点）────────────────────────────
 punctuation:
   normalize: true
-
-# ── 术语 AI 审计统一（收尾自动消除译法漂移，并改写正文）────────────────────
-glossary_audit: false
 
 # ── 路径 ─────────────────────────────────────────────────────────────────
 paths:

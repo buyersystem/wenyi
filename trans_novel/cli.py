@@ -1,6 +1,6 @@
 """命令行入口（typer + rich）。
 
-日常只需 `translate` 一个命令：连续全流程（分析→翻译→术语审计→一致性 QA→报告→回填 EPUB），
+日常只需 `translate` 一个命令：连续全流程（分析→翻译→审校→一致性 QA→报告→回填 EPUB），
 中断后再次运行自动续跑。其余 `resume` / `status` 为常用辅助；
 细粒度/调试工具收敛到 `tools`：glossary / assemble / qa / report。
 """
@@ -67,11 +67,6 @@ def translate(
         "--polish/--no-polish",
         help="覆盖配置文件中的润色开关",
     ),
-    audit: Optional[bool] = typer.Option(
-        None,
-        "--audit/--no-audit",
-        help="覆盖配置文件中的术语 AI 审计开关",
-    ),
     qa: Optional[bool] = typer.Option(
         None,
         "--qa/--no-qa",
@@ -110,15 +105,13 @@ def translate(
             progress=cb,
             out_format=fmt,
             out_path=out,
-            do_audit=audit,
             do_qa=qa,
         )
 
     s = result["report"]["summary"]
     console.print(
         f"[bold green]完成[/]：{s['chapters_done']}/{s['chapters_total']} 章，"
-        f"术语 {s['terms']}，统一 {len(result['audit'])} 组，"
-        f"一致性问题 {len(result['qa_issues'])} 项。"
+        f"术语 {s['terms']}，一致性问题 {len(result['qa_issues'])} 项。"
     )
     console.print(f"译文：[bold]{result['output']}[/]")
 

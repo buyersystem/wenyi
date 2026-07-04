@@ -121,7 +121,6 @@ class Orchestrator:
                 "backtranslate_sample": self.config.pipeline.backtranslate_sample,
                 "consistency_qa": self.config.pipeline.consistency_qa,
                 "book_understanding": self.config.pipeline.book_understanding,
-                "glossary_audit": self.config.glossary_audit,
             },
         )
         glossary = GlossaryStore(store.glossary_path)
@@ -627,13 +626,12 @@ class Orchestrator:
         return _BatchResult(targets=targets, issues=issues, bt_samples=bt_samples)
 
     # ── 可选步骤 / 连续全流程 ────────────────────────────────────────────────
-    ALL_STEPS = ("translate", "audit", "qa", "report", "assemble")
+    ALL_STEPS = ("translate", "qa", "report", "assemble")
 
     def run_steps(self, input_path: str, steps, *,
                   progress: Optional[ProgressFn] = None,
                   out_format: str = "epub", out_path: str | None = None) -> dict[str, Any]:
         """按需执行步骤子集（可单选可全选）。steps ⊆ ALL_STEPS。"""
-        from ..agents.glossary_auditor import GlossaryAuditor
         from ..agents.consistency import ConsistencyChecker
         from ..assemble.writer import assemble
         from ..assemble.report import build_report
@@ -650,18 +648,9 @@ class Orchestrator:
         store.log_event("run_steps_started", steps=run_steps_input, input_path=input_path)
 
         glossary = GlossaryStore(store.glossary_path)
-        audit_applied: list[dict] = []
         qa_issues: list[dict] = []
         report: dict[str, Any] | None = None
         try:
-            if "audit" in steps:
-                audit_applied = GlossaryAuditor(self.client, self.config).audit(store, glossary)
-                store.log_event(
-                    "glossary_audit_finished",
-                    applied_count=len(audit_applied),
-                    applied=audit_applied,
-                )
-
             if "qa" in steps:
                 qa_issues = ConsistencyChecker(self.client, self.config).check(store, glossary)
                 store.log_event(
@@ -673,7 +662,6 @@ class Orchestrator:
             if "report" in steps:
                 report = build_report(store, glossary)
                 report["consistency_issues"] = qa_issues
-                report["glossary_unifications"] = audit_applied
                 store.save_report(report)
                 store.log_event("report_saved", path=store.report_path)
         finally:
@@ -688,19 +676,16 @@ class Orchestrator:
             "run_steps_finished",
             steps=run_steps_input,
             output=out,
-            audit_count=len(audit_applied),
             qa_issue_count=len(qa_issues),
         )
         return {"store": store, "output": out, "report": report,
-                "qa_issues": qa_issues, "audit": audit_applied}
+                "qa_issues": qa_issues}
 
     def run_all(self, input_path: str, *, progress: Optional[ProgressFn] = None,
                 out_format: str = "epub", out_path: str | None = None,
-                do_audit: bool | None = None, do_qa: bool | None = None) -> dict[str, Any]:
-        """翻译 → 术语审计统一 → 一致性 QA → 报告 → 回填 EPUB，返回结果汇总。"""
+                do_qa: bool | None = None) -> dict[str, Any]:
+        """翻译 → 一致性 QA → 报告 → 回填 EPUB，返回结果汇总。"""
         steps = {"translate", "report", "assemble"}
-        if do_audit if do_audit is not None else self.config.glossary_audit:
-            steps.add("audit")
         if do_qa if do_qa is not None else self.config.pipeline.consistency_qa:
             steps.add("qa")
         return self.run_steps(input_path, steps, progress=progress,

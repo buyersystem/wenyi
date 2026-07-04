@@ -17,7 +17,6 @@ class TestCliConfig(unittest.TestCase):
             {
                 "llm": {"provider": "fake", "tiers": {"strong": {"model": "p"}}},
                 "pipeline": {"polish": True, "consistency_qa": False},
-                "glossary_audit": False,
             }
         )
         captured = {}
@@ -49,7 +48,6 @@ class TestCliConfig(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertTrue(captured["polish"])
-        self.assertIsNone(captured["run_all"]["do_audit"])
         self.assertIsNone(captured["run_all"]["do_qa"])
 
     def test_translate_flags_override_config_switches(self):
@@ -57,7 +55,6 @@ class TestCliConfig(unittest.TestCase):
             {
                 "llm": {"provider": "fake", "tiers": {"strong": {"model": "p"}}},
                 "pipeline": {"polish": True, "consistency_qa": False},
-                "glossary_audit": False,
             }
         )
         captured = {}
@@ -87,12 +84,11 @@ class TestCliConfig(unittest.TestCase):
         ):
             result = CliRunner().invoke(
                 app,
-                ["translate", "input.txt", "--no-polish", "--audit", "--qa"],
+                ["translate", "input.txt", "--no-polish", "--qa"],
             )
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertFalse(captured["polish"])
-        self.assertTrue(captured["run_all"]["do_audit"])
         self.assertTrue(captured["run_all"]["do_qa"])
 
 
