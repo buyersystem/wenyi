@@ -233,6 +233,8 @@ class Orchestrator:
         if progress and total:
             progress(total, total, "翻译完成")
         store.log_event("translate_run_finished", total_segments=total)
+        store.log_event("usage_summary", scope="translate",
+                        **self.client.usage_summary())
         return store
 
     @staticmethod
@@ -757,6 +759,7 @@ class Orchestrator:
                     progress(0, 0, "生成报告…")
                 report = build_report(store, glossary)
                 report["consistency_issues"] = qa_issues
+                report["usage"] = self.client.usage_summary()
                 store.save_report(report)
                 store.log_event("report_saved", path=store.report_path)
         finally:
@@ -794,6 +797,8 @@ class Orchestrator:
                 )
             store.log_event("assembled", outputs=outputs, out_format=out_format)
 
+        store.log_event("usage_summary", scope="pipeline",
+                        **self.client.usage_summary())
         store.log_event(
             "run_steps_finished",
             steps=run_steps_input,
