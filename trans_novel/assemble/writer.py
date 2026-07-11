@@ -185,10 +185,18 @@ def _render_chapter_html(
         src = _bilingual_source(src_by_anchor.get(anchor, ""), text)
         if not src:
             continue
-        src_el = soup.new_tag("p")
+        # p 的原文可作为相邻段落插入；li/blockquote 则必须留在原容器内，
+        # 避免生成 <ul><li>...</li><p>...</p></ul> 之类的非法列表结构，
+        # 同时保留引用块的语义和样式。
+        nested_source = el.name in {"li", "blockquote"}
+        src_el = soup.new_tag("div" if nested_source else "p")
         src_el["class"] = ["tn-source", "ibooks-dark-theme-use-custom-text-color"]
         src_el.append(src)
-        if order == "source_first":
+        if nested_source and order == "source_first":
+            el.insert(0, src_el)
+        elif nested_source:
+            el.append(src_el)
+        elif order == "source_first":
             el.insert_before(src_el)
         else:
             el.insert_after(src_el)

@@ -94,6 +94,75 @@ class TestRenderChapterHtmlBilingual(unittest.TestCase):
         self.assertNotIn("tn-source", html)
         self.assertNotIn("data-tn-id", html)
 
+    def test_list_source_stays_inside_list_item(self):
+        ch = Chapter(
+            index=0,
+            title="列表",
+            href="ch1.xhtml",
+            template=(
+                '<html><body><ul><li data-tn-id="li0">原项目</li></ul></body></html>'
+            ),
+            segments=[
+                Segment(
+                    index=0,
+                    source="原项目",
+                    target="译项目",
+                    kind=KIND_TEXT,
+                    anchor="li0",
+                )
+            ],
+        )
+
+        html = _render_chapter_html(ch, bilingual=True, order="target_first")
+        soup = BeautifulSoup(html, "html.parser")
+        ul = soup.find("ul")
+        self.assertEqual([child.name for child in ul.find_all(recursive=False)], ["li"])
+        li = ul.find("li", recursive=False)
+        source = li.find(class_="tn-source", recursive=False)
+        self.assertEqual(source.name, "div")
+        self.assertEqual(source.get_text(), "原项目")
+        self.assertTrue(li.get_text().startswith("译项目"))
+
+    def test_source_first_list_and_blockquote_stay_in_their_containers(self):
+        ch = Chapter(
+            index=0,
+            title="结构",
+            href="ch1.xhtml",
+            template=(
+                '<html><body><ol><li data-tn-id="li0">原项目</li></ol>'
+                '<blockquote data-tn-id="q0">原引用</blockquote></body></html>'
+            ),
+            segments=[
+                Segment(
+                    index=0,
+                    source="原项目",
+                    target="译项目",
+                    kind=KIND_TEXT,
+                    anchor="li0",
+                ),
+                Segment(
+                    index=1,
+                    source="原引用",
+                    target="译引用",
+                    kind=KIND_TEXT,
+                    anchor="q0",
+                ),
+            ],
+        )
+
+        html = _render_chapter_html(ch, bilingual=True, order="source_first")
+        soup = BeautifulSoup(html, "html.parser")
+        ol = soup.find("ol")
+        self.assertEqual([child.name for child in ol.find_all(recursive=False)], ["li"])
+        li = ol.find("li", recursive=False)
+        quote = soup.find("blockquote")
+        self.assertEqual(li.find(class_="tn-source", recursive=False).get_text(), "原项目")
+        self.assertEqual(
+            quote.find(class_="tn-source", recursive=False).get_text(), "原引用"
+        )
+        self.assertTrue(li.get_text().startswith("原项目"))
+        self.assertTrue(quote.get_text().startswith("原引用"))
+
 
 def _config(state_dir: str, output: dict | None = None):
     raw = {
