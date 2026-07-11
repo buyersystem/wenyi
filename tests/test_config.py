@@ -1,0 +1,38 @@
+"""配置文件创建与加载测试。"""
+
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+
+from trans_novel.config import Config
+
+
+class TestConfigFileCreation(unittest.TestCase):
+    def test_load_creates_missing_default_config(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "nested" / "config.yaml"
+            cfg = Config.load(str(path))
+
+            self.assertTrue(path.is_file())
+            self.assertEqual(cfg.llm.provider, "deepseek")
+            self.assertIn("strong", cfg.llm.tiers)
+            self.assertIn("# trans-novel 配置", path.read_text(encoding="utf-8"))
+
+    def test_load_never_overwrites_existing_config(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "config.yaml"
+            path.write_text("language:\n  source: en\n  target: zh\n", encoding="utf-8")
+
+            cfg = Config.load(str(path))
+
+            self.assertEqual(cfg.source_lang, "en")
+            self.assertEqual(
+                path.read_text(encoding="utf-8"),
+                "language:\n  source: en\n  target: zh\n",
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

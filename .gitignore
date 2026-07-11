@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+build/
+dist/
+*.spec
 state/
 *.db
 .DS_Store

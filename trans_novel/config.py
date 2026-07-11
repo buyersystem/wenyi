@@ -3,10 +3,76 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
+
+
+_DEFAULT_CONFIG_YAML = """\
+# trans-novel 配置（多语言小说 → 中文）
+# 修改后无需改代码；模型 ID、档位、流水线开关都在这里。
+
+language:
+  source: auto # auto 由模型识别来源语言；也可写死 ja / en / ko / ru / de 等语言代码
+  target: zh # 译文语言
+
+# ── LLM：DeepSeek 三档（经 OpenAI SDK 调 https://api.deepseek.com）─────────
+# strong/cheap 开 thinking（求质量的判断类任务）；fast 关 thinking（机械任务，
+# thinking 推理 token 按输出计费，关掉大幅省钱提速）。缺档按 fast→cheap→strong 回退。
+llm:
+  provider: deepseek # deepseek | fake（fake 用于离线测试，不发网络请求）
+  base_url: https://api.deepseek.com
+  api_key_env: DEEPSEEK_API_KEY # 从该环境变量读取 key
+  timeout: 600 # 单次请求超时（秒），思考模式耗时较长
+  max_retries: 4 # 失败重试次数（指数退避）
+  tiers:
+    strong:
+      model: deepseek-v4-pro # 翻译 / 润色 / 全局分析 / 标题
+      reasoning_effort: high
+      thinking: true
+    cheap:
+      model: deepseek-v4-flash # 审校 / 一致性 QA / 回译比对（判断类，保留思考）
+      reasoning_effort: high
+      thinking: true
+    fast:
+      model: deepseek-v4-flash # 梗概 / 全书概览 / 术语抽取 / 回译（机械任务，免思考）
+      thinking: false
+
+# ── 切分 ─────────────────────────────────────────────────────────────────
+segment:
+  # 一个翻译批次（句群）的目标大小，按字符粗略估算 token。
+  max_chars_per_batch: 1800
+  # 单个段落超过该长度时按句末标点再切成多段（续段回填时并回同段），避免超长段。
+  max_chars_per_segment: 1200
+
+# ── 流水线开关（质量/成本平衡）───────────────────────────────────────────
+pipeline:
+  review: true # 章末整章审校（廉价档）：漏译/误译/术语/人称检查
+  autofix_severe: false # 审校后自动重译严重项（漏译/误译）；关掉仅上报，不改正文
+  align_retry_limit: 2
+  polish: true # 润色（强档）：等于用 pro 把全书再翻一遍，最烧钱；默认关
+  backtranslate_sample: 0 # 回译抽检比例（0 关闭）
+  consistency_qa: false # 全书跨章一致性收尾扫描
+  rolling_context_segments: 6 # 注入的前文译文尾段数
+  book_understanding: true # 翻译前预扫源文，生成全书概览+逐章梗概注入翻译
+  prescan_concurrency: 4 # 预扫逐章梗概的并发线程数（各章独立，1=串行）
+  glossary_scope: chapter # chapter=本章相关词条；full=全量表
+
+# ── 敬称策略（日语源文本时生效，其它语言通常不会用到）────────────────────
+honorific:
+  # keep_style: 体现语气（前辈/小X/X君…）; normalize: 按统一规则；drop: 省略
+  strategy: keep_style
+
+# ── 标点规范化（统一为简体中文大陆通用全角标点）────────────────────────────
+punctuation:
+  normalize: true
+
+# ── 路径 ─────────────────────────────────────────────────────────────────
+paths:
+  state_dir: state # 运行状态、各章中间产物、术语库
+"""
 
 
 class TierConfig(BaseModel):
@@ -58,8 +124,21 @@ class Config(BaseModel):
     punctuation_normalize: bool = True  # 译文标点规范化为简体中文通用
     state_dir: str = "state"
 
+    @staticmethod
+    def create_default_file(path: str) -> bool:
+        """在 path 不存在时原子创建默认配置，返回是否由本次创建。"""
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with target.open("x", encoding="utf-8") as f:
+                f.write(_DEFAULT_CONFIG_YAML)
+            return True
+        except FileExistsError:
+            return False
+
     @classmethod
     def load(cls, path: str = "config.yaml") -> "Config":
+        cls.create_default_file(path)
         with open(path, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f) or {}
         return cls.from_dict(raw)
