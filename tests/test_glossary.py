@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import sqlite3
 import tempfile
 import threading
 import unittest
@@ -123,38 +122,6 @@ class TestGlossary(unittest.TestCase):
             self.assertEqual(len(check.open_conflicts()), 1)
         finally:
             check.close()
-
-    def test_legacy_confidence_and_locked_columns_are_migrated(self):
-        path = os.path.join(self.tmp.name, "legacy.db")
-        conn = sqlite3.connect(path)
-        conn.executescript(
-            """
-            CREATE TABLE glossary (
-                source TEXT PRIMARY KEY, target TEXT NOT NULL, reading TEXT,
-                type TEXT, gender TEXT, aliases TEXT, first_chapter INTEGER,
-                note TEXT, confidence TEXT DEFAULT 'medium',
-                locked INTEGER DEFAULT 0, status TEXT DEFAULT 'ok', updated_at REAL
-            );
-            INSERT INTO glossary
-                (source,target,aliases,confidence,locked,status)
-            VALUES ('X','旧译','[]','high',1,'ok');
-            """
-        )
-        conn.close()
-
-        migrated = GlossaryStore(path)
-        try:
-            columns = {
-                row["name"]
-                for row in migrated.conn.execute("PRAGMA table_info(glossary)")
-            }
-            self.assertNotIn("confidence", columns)
-            self.assertNotIn("locked", columns)
-            term = migrated.get_term("X")
-            assert term is not None
-            self.assertEqual(term.target, "旧译")
-        finally:
-            migrated.close()
 
     def test_translation_memory(self):
         self.store.add_tm("風が強かった。", "风很大。", chapter=1)

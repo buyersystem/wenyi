@@ -21,7 +21,7 @@ def build_client(config: Config) -> LLMClient:
         from .providers.openrouter import OpenRouterClient
 
         return OpenRouterClient(config.llm)
-    if provider in {"openai-compatible", "custom"}:
+    if provider == "openai-compatible":
         from .providers.openai_compatible import OpenAICompatibleClient
 
         return OpenAICompatibleClient(config.llm)

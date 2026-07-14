@@ -458,7 +458,6 @@ class Orchestrator:
         ]
 
         titled_chapters = [c for c in chapters if _flat(c.get("title", ""))]
-        m.pop("title_translated", None)
         if (all(c.get("title_translated") for c in titled_chapters)
                 and all(e.get("title_translated") for e in toc_entries)):
             store.save_manifest(m)

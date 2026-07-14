@@ -106,7 +106,7 @@ def _match_text(text: str) -> str:
 
 class GlossaryStore:
     def __init__(self, db_path: str):
-        """打开术语数据库，初始化表结构并迁移旧版字段。"""
+        """打开术语数据库并初始化当前版本的表结构。"""
         self.db_path = db_path
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
@@ -114,45 +114,11 @@ class GlossaryStore:
         self.conn.execute("PRAGMA busy_timeout = 5000")
         self.conn.execute("PRAGMA journal_mode = WAL")
         self.conn.executescript(_SCHEMA)
-        self._migrate_legacy_glossary_schema()
         self.conn.commit()
 
     def close(self) -> None:
         """关闭底层 SQLite 连接。"""
         self.conn.close()
-
-    def _migrate_legacy_glossary_schema(self) -> None:
-        """从旧库移除 confidence/locked 字段，同时保留全部术语数据。"""
-        columns = {
-            row["name"]
-            for row in self.conn.execute("PRAGMA table_info(glossary)").fetchall()
-        }
-        if not {"confidence", "locked"} & columns:
-            return
-
-        legacy_table = "glossary_legacy_priority"
-        if self.conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
-            (legacy_table,),
-        ).fetchone():
-            raise RuntimeError(f"术语库迁移失败：临时表 {legacy_table} 已存在")
-
-        preserved = (
-            "source,target,reading,type,gender,aliases,first_chapter,note,status,updated_at"
-        )
-        try:
-            self.conn.execute("BEGIN IMMEDIATE")
-            self.conn.execute(f"ALTER TABLE glossary RENAME TO {legacy_table}")
-            self.conn.execute(_CREATE_GLOSSARY_TABLE)
-            self.conn.execute(
-                f"INSERT INTO glossary ({preserved}) "
-                f"SELECT {preserved} FROM {legacy_table}"
-            )
-            self.conn.execute(f"DROP TABLE {legacy_table}")
-            self.conn.commit()
-        except Exception:
-            self.conn.rollback()
-            raise
 
     # ── 术语 ──────────────────────────────────────────────────────────────
     def get_term(self, source: str) -> Optional[GlossaryTerm]:

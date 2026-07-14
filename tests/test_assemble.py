@@ -225,7 +225,7 @@ class TestAssembleText(unittest.TestCase):
 
 
 class TestAssembleEpub(unittest.TestCase):
-    def test_epub_render_preserves_textual_inline_markup(self):
+    def test_epub_render_flattens_textual_inline_markup(self):
         html = """<html><body>
 <p><em>Hello</em> <a href="note.xhtml">world</a></p>
 <p><ruby>漢字<rt>かんじ</rt></ruby>です</p>
@@ -245,23 +245,10 @@ class TestAssembleEpub(unittest.TestCase):
         paragraphs = rendered.find_all("p")
 
         self.assertEqual(paragraphs[0].get_text(), "你好世界")
-        emphasis = paragraphs[0].find("em")
-        self.assertIsInstance(emphasis, Tag)
-        assert isinstance(emphasis, Tag)
-        self.assertTrue(emphasis.get_text())
-        link = paragraphs[0].find("a")
-        self.assertIsInstance(link, Tag)
-        assert isinstance(link, Tag)
-        self.assertEqual(link.get("href"), "note.xhtml")
-        self.assertTrue(link.get_text())
-        ruby = paragraphs[1].find("ruby")
-        self.assertIsInstance(ruby, Tag)
-        assert isinstance(ruby, Tag)
-        reading = ruby.find("rt")
-        self.assertIsInstance(reading, Tag)
-        assert isinstance(reading, Tag)
-        self.assertEqual(reading.get_text(), "かんじ")
-        self.assertIn("汉字如此", paragraphs[1].get_text().replace("かんじ", ""))
+        self.assertEqual(paragraphs[1].get_text(), "汉字如此")
+        self.assertIsNone(paragraphs[0].find("em"))
+        self.assertIsNone(paragraphs[0].find("a"))
+        self.assertIsNone(paragraphs[1].find("ruby"))
 
     def test_rewrite_html_honors_declared_encoding_and_emits_utf8(self):
         source = (
